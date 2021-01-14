@@ -51,6 +51,7 @@ type t = private
   ; merlin : bool
         (** [Some path/to/foo.exe] if this contexts is for feedback-directed
             optimization of target path/to/foo.exe *)
+  ; merlin_ext : string option
   ; fdo_target_exe : Path.t option
         (** By default Dune builds and installs dynamically linked foreign
             archives (usually named [dll*.so]). It is possible to disable this

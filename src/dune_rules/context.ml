@@ -69,6 +69,7 @@ module T = struct
     ; kind : Kind.t
     ; profile : Profile.t
     ; merlin : bool
+    ; merlin_ext : string option
     ; fdo_target_exe : Path.t option
     ; dynamically_linked_foreign_archives : bool
     ; for_host : t option
@@ -113,6 +114,7 @@ module T = struct
       ; ("kind", Kind.to_dyn t.kind)
       ; ("profile", Profile.to_dyn t.profile)
       ; ("merlin", Bool t.merlin)
+      ; ("merlin_ext", option string t.merlin_ext)
       ; ( "for_host"
         , option Context_name.to_dyn
             (Option.map t.for_host ~f:(fun t -> t.name)) )
@@ -272,7 +274,7 @@ let write_dot_dune_dir ~build_dir ~ocamlc ~ocaml_config_vars =
   in
   ()
 
-let create ~(kind : Kind.t) ~path ~env ~env_nodes ~name ~merlin ~targets
+let create ~(kind : Kind.t) ~path ~env ~env_nodes ~name ~merlin ~merlin_ext ~targets
     ~host_context ~host_toolchain ~profile ~fdo_target_exe
     ~dynamically_linked_foreign_archives ~instrument_with =
   let prog_not_found_in_path prog =
@@ -305,7 +307,7 @@ let create ~(kind : Kind.t) ~path ~env ~env_nodes ~name ~merlin ~targets
         >>| Path.of_filename_relative_to_initial_cwd)
   in
   let create_one ~(name : Context_name.t) ~implicit ~findlib_toolchain ~host
-      ~merlin =
+      ~merlin ~merlin_ext =
     let* findlib_config =
       match findlib_toolchain with
       | None -> Fiber.return None
@@ -541,6 +543,7 @@ let create ~(kind : Kind.t) ~path ~env ~env_nodes ~name ~merlin ~targets
       ; kind
       ; profile
       ; merlin
+      ; merlin_ext
       ; fdo_target_exe
       ; dynamically_linked_foreign_archives
       ; env_nodes
@@ -588,14 +591,14 @@ let create ~(kind : Kind.t) ~path ~env ~env_nodes ~name ~merlin ~targets
   let implicit = not (List.mem ~set:targets Workspace.Context.Target.Native) in
   let* native =
     create_one ~host:host_context ~findlib_toolchain:host_toolchain ~implicit
-      ~name ~merlin
+      ~name ~merlin ~merlin_ext
   in
   let+ others =
     Fiber.parallel_map targets ~f:(function
       | Native -> Fiber.return None
       | Named findlib_toolchain ->
         let name = Context_name.target name ~toolchain:findlib_toolchain in
-        create_one ~implicit:false ~name ~host:(Some native) ~merlin:false
+        create_one ~implicit:false ~name ~host:(Some native) ~merlin:false ~merlin_ext:None
           ~findlib_toolchain:(Some findlib_toolchain)
         >>| Option.some)
   in
@@ -655,7 +658,7 @@ let opam_version =
   Memo.exec memo
 
 let create_for_opam ~root ~env ~env_nodes ~targets ~profile ~switch ~name
-    ~merlin ~host_context ~host_toolchain ~fdo_target_exe
+    ~merlin ~merlin_ext ~host_context ~host_toolchain ~fdo_target_exe
     ~dynamically_linked_foreign_archives ~instrument_with =
   let opam =
     match Memo.Lazy.force opam with
@@ -705,7 +708,7 @@ let create_for_opam ~root ~env ~env_nodes ~targets ~profile ~switch ~name
   let env = Env.extend env ~vars in
   create
     ~kind:(Opam { root; switch })
-    ~profile ~targets ~path ~env ~env_nodes ~name ~merlin ~host_context
+    ~profile ~targets ~path ~env ~env_nodes ~name ~merlin ~merlin_ext ~host_context
     ~host_toolchain ~fdo_target_exe ~dynamically_linked_foreign_archives
     ~instrument_with
 
@@ -732,6 +735,7 @@ let instantiate_context env (workspace : Workspace.t)
     let merlin =
       workspace.merlin_context = Some (Workspace.Context.name context)
     in
+    let merlin_ext = Workspace.Context.merlin_ext context in
     let host_toolchain : Context_name.t option =
       match toolchain with
       | Some _ -> toolchain
@@ -741,7 +745,7 @@ let instantiate_context env (workspace : Workspace.t)
         Context_name.parse_string_exn (Loc.none, name)
     in
     let env = extend_paths ~env paths in
-    default ~env ~env_nodes ~profile ~targets ~name ~merlin ~host_context
+    default ~env ~env_nodes ~profile ~targets ~name ~merlin ~merlin_ext ~host_context
       ~host_toolchain ~fdo_target_exe ~dynamically_linked_foreign_archives
       ~instrument_with
   | Opam
@@ -761,9 +765,10 @@ let instantiate_context env (workspace : Workspace.t)
       ; switch
       ; root
       ; merlin
+      ; merlin_ext
       } ->
     let env = extend_paths ~env paths in
-    create_for_opam ~root ~env_nodes ~env ~profile ~switch ~name ~merlin
+    create_for_opam ~root ~env_nodes ~env ~profile ~switch ~name ~merlin ~merlin_ext
       ~targets ~host_context ~host_toolchain:toolchain ~fdo_target_exe
       ~dynamically_linked_foreign_archives ~instrument_with
 

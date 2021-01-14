@@ -170,28 +170,32 @@ module Context = struct
       ; switch : string
       ; root : string option
       ; merlin : bool
+      ; merlin_ext : string option
       }
 
-    let to_dyn { base; switch; root; merlin } =
+    let to_dyn { base; switch; root; merlin; merlin_ext } =
       let open Dyn.Encoder in
       record
         [ ("base", Common.to_dyn base)
         ; ("switch", string switch)
         ; ("root", option string root)
         ; ("merlin", bool merlin)
+        ; ("merlin_ext", option string merlin_ext)
         ]
 
-    let equal { base; switch; root; merlin } t =
+    let equal { base; switch; root; merlin; merlin_ext } t =
       Common.equal base t.base
       && String.equal switch t.switch
       && Option.equal String.equal root t.root
       && Bool.equal merlin t.merlin
+      && Option.equal String.equal merlin_ext t.merlin_ext
 
     let t ~profile ~instrument_with ~x =
       let+ loc_switch, switch = field "switch" (located string)
       and+ name = field_o "name" Context_name.decode
       and+ root = field_o "root" string
       and+ merlin = field_b "merlin"
+      and+ merlin_ext = field_o "merlin_ext" string
       and+ base = Common.t ~profile ~instrument_with in
       let name =
         match name with
@@ -209,7 +213,7 @@ module Context = struct
               ] )
       in
       let base = { base with targets = Target.add base.targets x; name } in
-      { base; switch; root; merlin }
+      { base; switch; root; merlin; merlin_ext }
   end
 
   module Default = struct
@@ -284,6 +288,10 @@ module Context = struct
   let targets = function
     | Default x -> x.targets
     | Opam x -> x.base.targets
+
+  let merlin_ext = function
+    | Default _ -> None
+    | Opam x -> x.merlin_ext
 
   let all_names t =
     let n = name t in

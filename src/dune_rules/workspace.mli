@@ -41,6 +41,7 @@ module Context : sig
       ; switch : string
       ; root : string option
       ; merlin : bool
+      ; merlin_ext : string option
       }
   end
 
@@ -59,6 +60,8 @@ module Context : sig
   val env : t -> Dune_env.Stanza.t
 
   val host_context : t -> Context_name.t option
+
+  val merlin_ext : t -> string option
 end
 
 (** Representation of a workspace. The list of context is topologically sorted,
